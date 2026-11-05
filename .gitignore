@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.worldatlas/
+/worldatlas.json
+/WORLDATLAS_INDEX.md
+/stories/
+/characters/
+/places/
+/items/
+/factions/
+/lore/
+/events/
+/assets/
