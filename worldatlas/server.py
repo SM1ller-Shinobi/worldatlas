@@ -140,7 +140,7 @@ class Handler(BaseHTTPRequestHandler):
                 html = template.replace("__SESSION_TOKEN__", self.server.token).replace("__THEME__", read_settings()["theme"])
                 self._bytes(html.encode("utf-8"), "text/html; charset=utf-8")
                 return
-            if method == "GET" and url.path in ("/app.js", "/style.css", "/project-settings.css", "/fantasy.css", "/avatars.css", "/editor-controls.css", "/lightbox.css"):
+            if method == "GET" and url.path in ("/app.js", "/style.css", "/project-settings.css", "/fantasy.css", "/avatars.css", "/editor-controls.css", "/lightbox.css", "/project-cover.css"):
                 mime = "text/javascript" if url.path.endswith(".js") else "text/css"
                 self._bytes((WEB_DIR / url.path[1:]).read_bytes(), f"{mime}; charset=utf-8")
                 return
@@ -180,6 +180,14 @@ class Handler(BaseHTTPRequestHandler):
             if method == "PUT" and url.path == "/api/project":
                 data = self._body()
                 self._json(self.server.store.update_project(data.get("project", {}), data.get("revision", "")))
+                return
+            if method == "POST" and url.path == "/api/project/image":
+                data = self._body()
+                try:
+                    image = base64.b64decode(data.get("data", ""), validate=True)
+                except (ValueError, TypeError) as exc:
+                    raise StoreError("Неверное изображение") from exc
+                self._json(self.server.store.add_project_image(str(data.get("name", "image")), image), 201)
                 return
             if method == "POST" and url.path == "/api/entry":
                 self._json(self.server.store.create_entry(self._body()), 201)

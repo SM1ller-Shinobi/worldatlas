@@ -144,6 +144,31 @@ class StorageTests(unittest.TestCase):
         with self.assertRaises(StoreError):
             self.store.asset_path("../worldatlas.json")
 
+    def test_project_cover_upload_save_reopen_and_remove(self):
+        image = self.store.add_project_image("landscape.jpeg", b"\xff\xd8\xffvalid-image-data")
+        self.assertTrue(image["asset"].endswith(".jpg"))
+        self.assertTrue(self.store.asset_path(image["asset"]).is_file())
+        revision = self.store.project_data()["project_revision"]
+        saved = self.store.update_project({"title": "Берег", "cover_image": image["asset"]}, revision)
+        self.assertEqual(saved["project"]["cover_image"], image["asset"])
+        self.assertIn(f"assets/{image['asset']}", (self.folder / "WORLDATLAS_INDEX.md").read_text(encoding="utf-8"))
+        reopened = WorldStore().open(str(self.folder))
+        self.assertEqual(reopened["project"]["cover_image"], image["asset"])
+        removed = self.store.update_project({"title": "Берег", "cover_image": None}, saved["revision"])
+        self.assertIsNone(removed["project"]["cover_image"])
+        self.assertNotIn(image["asset"], (self.folder / "WORLDATLAS_INDEX.md").read_text(encoding="utf-8"))
+        self.assertTrue(self.store.asset_path(image["asset"]).is_file())
+
+    def test_project_cover_rejects_invalid_or_missing_files(self):
+        revision = self.store.project_data()["project_revision"]
+        with self.assertRaises(StoreError):
+            self.store.update_project({"cover_image": "../worldatlas.json"}, revision)
+        with self.assertRaises(StoreError):
+            self.store.update_project({"cover_image": "a" * 32 + ".png"}, revision)
+        self.assertEqual(self.store.project_data()["project_revision"], revision)
+        with self.assertRaises(StoreError):
+            self.store.add_project_image("image.svg", b"<svg></svg>")
+
 
 if __name__ == "__main__":
     unittest.main()

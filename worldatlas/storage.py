@@ -219,6 +219,7 @@ class WorldStore:
                 project_title = _text(title, "Название проекта", 160).strip() or folder.name
                 project = {"format": 1, "id": uuid.uuid4().hex, "title": project_title,
                            "summary": "", "genre": "", "medium": "", "tone": "",
+                           "cover_image": None,
                            "setup_complete": False, "created_at": now(), "updated_at": now()}
                 atomic_write(manifest, json.dumps(project, ensure_ascii=False, indent=2).encode("utf-8") + b"\n")
             if not manifest.is_file():
@@ -260,6 +261,12 @@ class WorldStore:
             project["genre"] = _text(data.get("genre", ""), "Жанр", 100).strip()
             project["medium"] = _text(data.get("medium", ""), "Формат", 100).strip()
             project["tone"] = _text(data.get("tone", ""), "Тон", 160).strip()
+            cover_image = data.get("cover_image", project.get("cover_image")) or None
+            if cover_image is not None:
+                if not isinstance(cover_image, str) or not ASSET_RE.fullmatch(cover_image):
+                    raise StoreError("Неверное главное изображение проекта")
+                self.asset_path(cover_image)
+            project["cover_image"] = cover_image
             project["setup_complete"] = True
             project["updated_at"] = now()
             self._history(path, raw)
@@ -382,6 +389,8 @@ class WorldStore:
         if project is None:
             project = json.loads(self._project_file().read_text(encoding="utf-8"))
         lines = [f"# {project['title']}", "", project.get("summary", ""), ""]
+        if project.get("cover_image"):
+            lines.extend([f"![Главное изображение мира](assets/{project['cover_image']})", ""])
         for key, label in (("genre", "Жанр"), ("medium", "Формат"), ("tone", "Тон")):
             if project.get(key):
                 lines.append(f"**{label}:** {project[key]}")
@@ -403,6 +412,21 @@ class WorldStore:
             if not data.startswith(b"\x89PNG\r\n\x1a\n"):
                 raise StoreError("Для новых изображений используйте PNG")
             asset = f"{uuid.uuid4().hex}.png"
+            atomic_write(self._root() / "assets" / asset, data)
+            return {"asset": asset, "name": filename}
+
+    def add_project_image(self, filename: str, data: bytes) -> dict:
+        with self.lock:
+            if not data or len(data) > MAX_IMAGE_BYTES:
+                raise StoreError("Изображение должно быть не больше 12 МБ")
+            signatures = ((b"\x89PNG\r\n\x1a\n", "png"), (b"\xff\xd8\xff", "jpg"),
+                          (b"GIF87a", "gif"), (b"GIF89a", "gif"))
+            extension = next((ext for signature, ext in signatures if data.startswith(signature)), None)
+            if extension is None and data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+                extension = "webp"
+            if extension is None:
+                raise StoreError("Главное изображение должно быть PNG, JPEG, WebP или GIF")
+            asset = f"{uuid.uuid4().hex}.{extension}"
             atomic_write(self._root() / "assets" / asset, data)
             return {"asset": asset, "name": filename}
 

@@ -1,3 +1,4 @@
+import base64
 import json
 import tempfile
 import threading
@@ -83,6 +84,19 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(json.loads(settings_file.read_text(encoding="utf-8"))["theme"], "modern")
             settings_file.write_text('{"theme":"fantasy"}', encoding="utf-8")
             self.assertFalse(self.request("/api/state")[1]["settings"]["avatars_enabled"])
+
+    def test_project_image_api(self):
+        folder = Path(self.temp.name) / "Мир"
+        self.request("/api/project/open", "POST", {"path": str(folder), "create": True})
+        image = base64.b64encode(b"\x89PNG\r\n\x1a\nimage-data").decode("ascii")
+        status, response = self.request("/api/project/image", "POST", {"name": "cover.png", "data": image})
+        self.assertEqual(status, 201)
+        self.assertTrue(response["asset"].endswith(".png"))
+        self.assertEqual((folder / "assets" / response["asset"]).read_bytes(), base64.b64decode(image))
+        with self.assertRaises(HTTPError) as context:
+            self.request("/api/project/image", "POST", {"name": "bad.svg", "data": base64.b64encode(b"<svg/>").decode("ascii")})
+        self.assertEqual(context.exception.code, 400)
+        context.exception.close()
 
 
 if __name__ == "__main__":
