@@ -1,0 +1,47 @@
+.project-settings {
+  width: 100%;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 38px clamp(22px, 5vw, 62px) 56px;
+  overflow: auto;
+}
+.settings-heading { margin-bottom: 28px; }
+.settings-heading h1 { font: 400 clamp(30px, 3vw, 42px)/1.2 Georgia, serif; margin: 10px 0; }
+.settings-heading p { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 0; }
+.settings-form { display: grid; gap: 18px; }
+.settings-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 25px;
+  display: grid;
+  gap: 20px;
+}
+.settings-card h2 { font-size: 16px; font-weight: 600; margin: 0 0 2px; }
+.settings-card .field label { font-size: 12px; color: var(--text); }
+.settings-card textarea {
+  min-height: 115px;
+  resize: vertical;
+  line-height: 1.6;
+}
+.settings-card select {
+  background: #101a27;
+  color: var(--text);
+  border: 1px solid #33485c;
+  border-radius: 8px;
+  padding: 10px 11px;
+  outline: 0;
+  width: 100%;
+  font-size: 13px;
+}
+.settings-card select:focus { border-color: var(--accent); }
+.settings-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.settings-footer { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+.settings-footer > div { min-width: 0; }
+.settings-footer small { display: block; color: var(--muted); margin-top: 6px; font-size: 11px; }
+.settings-path { display: block; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .project-settings { padding: 24px 18px 40px; }
+  .settings-fields { grid-template-columns: 1fr; }
+  .settings-footer { align-items: stretch; flex-direction: column; }
+}

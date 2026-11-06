@@ -218,7 +218,8 @@ class WorldStore:
                 folder.mkdir(parents=True, exist_ok=True)
                 project_title = _text(title, "Название проекта", 160).strip() or folder.name
                 project = {"format": 1, "id": uuid.uuid4().hex, "title": project_title,
-                           "summary": "", "created_at": now(), "updated_at": now()}
+                           "summary": "", "genre": "", "medium": "", "tone": "",
+                           "setup_complete": False, "created_at": now(), "updated_at": now()}
                 atomic_write(manifest, json.dumps(project, ensure_ascii=False, indent=2).encode("utf-8") + b"\n")
             if not manifest.is_file():
                 raise StoreError("В папке нет проекта WorldAtlas", 404)
@@ -254,10 +255,12 @@ class WorldStore:
             if digest(raw) != expected_revision:
                 raise StoreError("Проект изменился на диске. Обновите его перед сохранением.", 409)
             project = json.loads(raw)
-            project["title"] = _text(data.get("title", ""), "Название", 160).strip()
-            if not project["title"]:
-                raise StoreError("Укажите название проекта")
+            project["title"] = _text(data.get("title", ""), "Название", 160).strip() or self._root().name
             project["summary"] = _text(data.get("summary", ""), "Описание", 20000)
+            project["genre"] = _text(data.get("genre", ""), "Жанр", 100).strip()
+            project["medium"] = _text(data.get("medium", ""), "Формат", 100).strip()
+            project["tone"] = _text(data.get("tone", ""), "Тон", 160).strip()
+            project["setup_complete"] = True
             project["updated_at"] = now()
             self._history(path, raw)
             atomic_write(path, json.dumps(project, ensure_ascii=False, indent=2).encode("utf-8") + b"\n")
@@ -378,7 +381,11 @@ class WorldStore:
             entries, _ = self._read_all()
         if project is None:
             project = json.loads(self._project_file().read_text(encoding="utf-8"))
-        lines = [f"# {project['title']}", "", project.get("summary", ""), "", "Документация мира. Записи в папках — исходные Markdown-файлы проекта.", ""]
+        lines = [f"# {project['title']}", "", project.get("summary", ""), ""]
+        for key, label in (("genre", "Жанр"), ("medium", "Формат"), ("tone", "Тон")):
+            if project.get(key):
+                lines.append(f"**{label}:** {project[key]}")
+        lines.extend(["", "Документация мира. Записи в папках — исходные Markdown-файлы проекта.", ""])
         for kind, (directory, label) in KINDS.items():
             current = sorted((e for e in entries if e["kind"] == kind and not e.get("deleted")), key=lambda e: e["title"].casefold())
             lines.extend([f"## {label}", ""])

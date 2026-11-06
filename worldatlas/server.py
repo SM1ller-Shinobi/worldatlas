@@ -113,7 +113,7 @@ class Handler(BaseHTTPRequestHandler):
                 template = (WEB_DIR / "index.html").read_text(encoding="utf-8")
                 self._bytes(template.replace("__SESSION_TOKEN__", self.server.token).encode("utf-8"), "text/html; charset=utf-8")
                 return
-            if method == "GET" and url.path in ("/app.js", "/style.css"):
+            if method == "GET" and url.path in ("/app.js", "/style.css", "/project-settings.css"):
                 mime = "text/javascript" if url.path.endswith(".js") else "text/css"
                 self._bytes((WEB_DIR / url.path[1:]).read_bytes(), f"{mime}; charset=utf-8")
                 return

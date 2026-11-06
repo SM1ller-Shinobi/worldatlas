@@ -6,6 +6,7 @@
   <meta name="worldatlas-token" content="__SESSION_TOKEN__">
   <title>Атлас миров</title>
   <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/project-settings.css">
   <script src="/app.js" defer></script>
 </head>
 <body>
@@ -15,13 +16,14 @@
       <button id="project-switch" class="project-switch" title="Открыть другой проект"><span class="project-switch-icon">◈</span><span class="project-switch-copy"><b id="project-name-side">Проект</b><small>Сменить мир</small></span><span>⌄</span></button>
       <div class="nav-caption">РАБОЧЕЕ ПРОСТРАНСТВО</div>
       <nav id="nav" class="nav"></nav>
-      <div class="sidebar-bottom"><button id="settings-button" class="side-action">⚙ <span>О проекте</span></button><button id="backup-button" class="side-action">⇩ <span>Резервная копия</span></button><button id="quit-button" class="side-action">⏻ <span>Закрыть приложение</span></button></div>
+      <div class="sidebar-bottom"><button id="backup-button" class="side-action">⇩ <span>Резервная копия</span></button><button id="quit-button" class="side-action">⏻ <span>Закрыть приложение</span></button></div>
     </aside>
 
     <main class="workspace">
       <header class="topbar"><div class="crumb"><span id="project-name-head"></span><span class="crumb-sep">/</span><span id="section-name">Обзор</span></div><div class="top-actions"><span id="save-status" class="save-status">Все изменения сохранены</span><button id="import-button" class="quiet-button">Импорт Markdown</button><input id="import-file" type="file" accept=".md,.txt,text/markdown,text/plain" hidden><button id="new-button" class="primary-button">＋ Новая запись</button></div></header>
       <div id="warnings" class="warnings hidden"></div>
       <div id="dashboard" class="dashboard"></div>
+      <section id="project-settings" class="project-settings hidden"></section>
       <div id="content" class="content hidden">
         <section class="collection"><div class="collection-head"><div><div class="eyebrow" id="collection-eyebrow">БИБЛИОТЕКА</div><h1 id="collection-title">Сюжет</h1></div><button id="collection-add" class="icon-button" title="Добавить запись">＋</button></div><div class="search-wrap"><span>⌕</span><input id="search" type="search" placeholder="Поиск по названиям и меткам" autocomplete="off"></div><div id="list" class="entry-list"></div><div id="list-footer" class="list-footer"></div></section>
         <section id="editor" class="editor"><div class="empty-editor"><div class="empty-symbol">✧</div><h2>Выберите запись</h2><p>Или создайте новую, чтобы начать описывать мир.</p></div></section>
@@ -29,7 +31,7 @@
     </main>
   </div>
 
-  <div id="welcome" class="welcome"><div class="welcome-card"><div class="welcome-top"><span class="welcome-logo">✦</span><span class="eyebrow">ВАША ВСЕЛЕННАЯ В ПОРЯДКЕ</span></div><h1>Мир, который легко<br><em>развивать.</em></h1><p class="welcome-lead">Сюжет, персонажи, места и детали мира в одном месте. Всё хранится в папке проекта как обычные файлы.</p><div class="folder-form"><label for="folder-path">Папка проекта</label><div class="path-row"><input id="folder-path" type="text" placeholder="C:\Мои миры\Новый мир" spellcheck="false"><button id="browse-button" class="secondary-button">Выбрать папку</button></div><div id="folder-hint" class="folder-hint">Выберите существующий проект или пустую папку для нового.</div><div id="create-name-wrap" class="hidden"><label for="create-name">Название нового мира</label><input id="create-name" type="text" placeholder="Например, Хроники Прилива"></div><button id="open-button" class="primary-button wide">Открыть проект</button></div><div id="recents-wrap" class="recents hidden"><div class="eyebrow">НЕДАВНИЕ МИРЫ</div><div id="recents"></div></div></div><div class="welcome-art"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="planet"></div><span class="star star-a">✦</span><span class="star star-b">✧</span><span class="star star-c">✦</span><div class="art-caption">Каждая деталь<br>становится частью истории.</div></div></div>
+  <div id="welcome" class="welcome"><div class="welcome-card"><div class="welcome-top"><span class="welcome-logo">✦</span><span class="eyebrow">ВАША ВСЕЛЕННАЯ В ПОРЯДКЕ</span></div><h1>Мир, который легко<br><em>развивать.</em></h1><p class="welcome-lead">Сюжет, персонажи, места и детали мира в одном месте. Всё хранится в папке проекта как обычные файлы.</p><div class="folder-form"><label for="folder-path">Папка проекта</label><div class="path-row"><input id="folder-path" type="text" placeholder="C:\Мои миры\Новый мир" spellcheck="false"><button id="browse-button" class="secondary-button">Выбрать папку</button></div><div id="folder-hint" class="folder-hint">Выберите существующий проект или пустую папку для нового.</div><button id="open-button" class="primary-button wide">Открыть проект</button></div><div id="recents-wrap" class="recents hidden"><div class="eyebrow">НЕДАВНИЕ МИРЫ</div><div id="recents"></div></div></div><div class="welcome-art"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="planet"></div><span class="star star-a">✦</span><span class="star star-b">✧</span><span class="star star-c">✦</span><div class="art-caption">Каждая деталь<br>становится частью истории.</div></div></div>
 
   <div id="modal" class="modal-backdrop hidden"><div class="modal-card"><div class="modal-head"><h2 id="modal-title">О проекте</h2><button id="modal-close" class="icon-button">×</button></div><div id="modal-body"></div><div id="modal-actions" class="modal-actions"></div></div></div>
   <div id="toast" class="toast hidden"></div>

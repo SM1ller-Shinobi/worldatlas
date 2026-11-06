@@ -32,6 +32,32 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(data["entries"][0]["title"], "Кэриан Второй")
         self.assertEqual(reopened.get_entry(entry_id)["entry"]["body"], edited["body"])
 
+    def test_optional_project_settings_and_reopen(self):
+        self.assertFalse(self.store.project_data()["project"]["setup_complete"])
+        revision = self.store.project_data()["project_revision"]
+        result = self.store.update_project({"title": "", "summary": "", "genre": "", "medium": "", "tone": ""}, revision)
+        self.assertTrue(result["project"]["setup_complete"])
+        self.assertEqual(result["project"]["title"], self.folder.name)
+        updated = self.store.update_project({"title": "Лунный берег", "summary": "Мир приливов",
+                                             "genre": "Авторский жанр", "medium": "Игра", "tone": "Таинственный"},
+                                            result["revision"])
+        reopened = WorldStore().open(str(self.folder))
+        self.assertEqual(reopened["project"]["genre"], "Авторский жанр")
+        self.assertEqual(reopened["project"]["medium"], "Игра")
+        self.assertEqual(reopened["project"]["title"], updated["project"]["title"])
+        index = (self.folder / "WORLDATLAS_INDEX.md").read_text(encoding="utf-8")
+        self.assertIn("**Жанр:** Авторский жанр", index)
+
+    def test_legacy_project_without_setup_flag_is_readable(self):
+        path = self.folder / "worldatlas.json"
+        project = json.loads(path.read_text(encoding="utf-8"))
+        for key in ("setup_complete", "genre", "medium", "tone"):
+            project.pop(key, None)
+        path.write_text(json.dumps(project, ensure_ascii=False), encoding="utf-8")
+        reopened = WorldStore().open(str(self.folder))
+        self.assertNotIn("setup_complete", reopened["project"])
+        self.assertEqual(reopened["project"]["title"], self.folder.name)
+
     def test_external_edit_conflict_preserves_both_versions(self):
         created = self.store.create_entry({"kind": "place", "title": "Тидхавен", "body": "Причал"})
         entry_id = created["entry"]["id"]
