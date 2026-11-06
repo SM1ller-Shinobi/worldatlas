@@ -23,7 +23,17 @@
   min-height: 115px;
   resize: vertical;
   line-height: 1.6;
+  width: 100%;
+  padding: 10px 11px;
+  background: #101a27;
+  color: var(--text);
+  border: 1px solid #33485c;
+  border-radius: 8px;
+  outline: 0;
+  font-size: 13px;
 }
+.settings-card textarea::placeholder { color: var(--muted); }
+.settings-card textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #74c9c018; }
 .settings-card select {
   background: #101a27;
   color: var(--text);
