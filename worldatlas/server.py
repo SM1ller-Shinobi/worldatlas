@@ -12,7 +12,6 @@ import subprocess
 import sys
 import threading
 import webbrowser
-from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -184,7 +183,7 @@ class Handler(BaseHTTPRequestHandler):
             raise StoreError("Адрес не найден", 404)
         except StoreError as exc:
             self._json({"error": str(exc)}, exc.status)
-        except (OSError, KeyError, ValueError) as exc:
+        except (OSError, KeyError, TypeError, ValueError) as exc:
             LOG.exception("Request failed")
             self._json({"error": f"Ошибка чтения или записи: {exc}"}, 500)
 

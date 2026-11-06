@@ -22,6 +22,7 @@ KINDS = {
     "faction": ("factions", "Фракции"),
     "lore": ("lore", "Устройство мира"),
     "event": ("events", "Хронология"),
+    "other": ("other", "Другое"),
 }
 UUID_RE = re.compile(r"^[0-9a-f]{32}$")
 ASSET_RE = re.compile(r"^[0-9a-f]{32}\.(png|jpg|webp|gif)$")
@@ -42,6 +43,12 @@ def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def project_path(value: str) -> Path:
+    if not isinstance(value, str) or not value.strip():
+        raise StoreError("Укажите папку проекта")
+    return Path(os.path.expandvars(value.strip())).expanduser().resolve()
+
+
 def atomic_write(path: Path, data: bytes) -> None:
     """Replace a file only after its complete contents reach the filesystem."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -58,22 +65,39 @@ def atomic_write(path: Path, data: bytes) -> None:
 
 
 def markdown_document(entry: dict) -> bytes:
-    metadata = {key: value for key, value in entry.items() if key != "body"}
+    metadata = {key: value for key, value in entry.items() if key not in ("body", "title")}
+    metadata["schema"] = 2
     header = json.dumps(metadata, ensure_ascii=False, indent=2)
     body = entry.get("body", "").strip("\n")
-    return f"---\n{header}\n---\n\n{body}\n".encode("utf-8")
+    if body.startswith(f"# {entry['title']}\n"):
+        body = body.split("\n", 1)[1].lstrip("\n")
+    return f"---\n{header}\n---\n\n# {entry['title']}\n\n{body}\n".encode("utf-8")
 
 
 def parse_document(data: bytes) -> dict:
     try:
-        text = data.decode("utf-8-sig")
+        text = data.decode("utf-8-sig").replace("\r\n", "\n").replace("\r", "\n")
         if not text.startswith("---\n"):
             raise ValueError("нет блока метаданных")
         header, body = text[4:].split("\n---\n", 1)
         entry = json.loads(header)
         if not isinstance(entry, dict):
             raise ValueError("метаданные должны быть объектом")
-        entry["body"] = body.lstrip("\n").rstrip("\n")
+        body = body.lstrip("\n").rstrip("\n")
+        if entry.get("schema") == 2:
+            heading = re.match(r"^# ([^\n]+)(?:\n|$)", body)
+            if heading is None or not heading.group(1).strip():
+                raise ValueError("нет заголовка записи")
+            entry["title"] = heading.group(1).strip()
+            body = body[heading.end():].lstrip("\n")
+        if (not isinstance(entry.get("id"), str) or not UUID_RE.fullmatch(entry["id"])
+                or not isinstance(entry.get("kind"), str) or entry["kind"] not in KINDS
+                or not isinstance(entry.get("title"), str) or not entry["title"].strip()
+                or not isinstance(entry.get("fields", {}), dict)
+                or not isinstance(entry.get("tags", []), list)
+                or not isinstance(entry.get("links", []), list)):
+            raise ValueError("неверные или неполные метаданные")
+        entry["body"] = body
         return entry
     except (UnicodeError, ValueError) as exc:
         raise StoreError(f"Не удалось прочитать Markdown: {exc}") from exc
@@ -94,6 +118,8 @@ def _clean_entry(entry: dict, original: dict | None = None) -> dict:
     title = _text(entry.get("title", ""), "Название", 160).strip()
     if not title:
         raise StoreError("Укажите название")
+    if "\n" in title or "\r" in title:
+        raise StoreError("Название должно быть одной строкой")
     fields = entry.get("fields", {})
     if not isinstance(fields, dict) or len(fields) > 60:
         raise StoreError("Неверный набор полей")
@@ -119,7 +145,7 @@ def _clean_entry(entry: dict, original: dict | None = None) -> dict:
     order = entry.get("order", 0)
     if isinstance(order, bool) or not isinstance(order, int) or not 0 <= order <= 99999:
         raise StoreError("Порядок должен быть числом от 0 до 99999")
-    return {
+    clean = {
         "id": original["id"] if original else uuid.uuid4().hex,
         "kind": kind,
         "title": title,
@@ -135,6 +161,11 @@ def _clean_entry(entry: dict, original: dict | None = None) -> dict:
         "updated_at": now(),
         "deleted": original.get("deleted", False) if original else False,
     }
+    if original:
+        for key, value in original.items():
+            if key not in clean:
+                clean[key] = value
+    return clean
 
 
 class WorldStore:
@@ -163,7 +194,7 @@ class WorldStore:
 
     @staticmethod
     def inspect(path: str) -> dict:
-        folder = Path(path).expanduser().resolve()
+        folder = project_path(path)
         if folder.is_file():
             raise StoreError("Выберите папку, а не файл")
         manifest = folder / "worldatlas.json"
@@ -177,7 +208,7 @@ class WorldStore:
 
     def open(self, path: str, create: bool = False, title: str = "") -> dict:
         with self.lock:
-            folder = Path(path).expanduser().resolve()
+            folder = project_path(path)
             if folder.is_file():
                 raise StoreError("Выберите папку, а не файл")
             manifest = folder / "worldatlas.json"
@@ -191,12 +222,14 @@ class WorldStore:
                 atomic_write(manifest, json.dumps(project, ensure_ascii=False, indent=2).encode("utf-8") + b"\n")
             if not manifest.is_file():
                 raise StoreError("В папке нет проекта WorldAtlas", 404)
-            project = json.loads(manifest.read_text(encoding="utf-8"))
+            raw = manifest.read_bytes()
+            project = json.loads(raw)
             if project.get("format") != 1:
                 raise StoreError("Неподдерживаемая версия проекта")
             self.root = folder
-            self._write_index()
-            return self.project_data()
+            entries, warnings = self._read_all()
+            self._write_index(entries, project)
+            return self._project_data(project, raw, entries, warnings)
 
     def _project_file(self) -> Path:
         return self._root() / "worldatlas.json"
@@ -207,9 +240,12 @@ class WorldStore:
             raw = manifest.read_bytes()
             project = json.loads(raw)
             entries, warnings = self._read_all()
-            entries.sort(key=lambda e: e.get("updated_at", ""), reverse=True)
-            return {"path": str(self._root()), "project": project, "project_revision": digest(raw),
-                    "entries": [self._summary(e) for e in entries], "warnings": warnings}
+            return self._project_data(project, raw, entries, warnings)
+
+    def _project_data(self, project: dict, raw: bytes, entries: list[dict], warnings: list[str]) -> dict:
+        entries.sort(key=lambda e: e.get("updated_at", ""), reverse=True)
+        return {"path": str(self._root()), "project": project, "project_revision": digest(raw),
+                "entries": [self._summary(e) for e in entries], "warnings": warnings}
 
     def update_project(self, data: dict, expected_revision: str) -> dict:
         with self.lock:
@@ -230,15 +266,34 @@ class WorldStore:
 
     def _read_all(self) -> tuple[list[dict], list[str]]:
         result, warnings = [], []
+        cache_path = self._root() / ".worldatlas" / "cache.json"
+        try:
+            cached = json.loads(cache_path.read_text(encoding="utf-8"))
+            old_files = cached["files"] if cached.get("version") == 1 and isinstance(cached.get("files"), dict) else {}
+        except (OSError, ValueError, TypeError):
+            old_files = {}
+        new_files = {}
         for kind, (directory, _) in KINDS.items():
             for path in sorted((self._root() / directory).glob("*.md")):
                 try:
-                    entry = parse_document(path.read_bytes())
+                    key = path.relative_to(self._root()).as_posix()
+                    stat = path.stat()
+                    previous = old_files.get(key)
+                    if (isinstance(previous, dict) and previous.get("mtime_ns") == stat.st_mtime_ns
+                            and previous.get("size") == stat.st_size and isinstance(previous.get("entry"), dict)
+                            and previous["entry"].get("id") == path.stem and previous["entry"].get("kind") == kind
+                            and isinstance(previous["entry"].get("title"), str)):
+                        entry = previous["entry"]
+                    else:
+                        entry = self._summary(parse_document(path.read_bytes()))
                     if entry.get("id") != path.stem or entry.get("kind") != kind:
                         raise StoreError("идентификатор или раздел не совпадает с именем файла")
                     result.append(entry)
+                    new_files[key] = {"mtime_ns": stat.st_mtime_ns, "size": stat.st_size, "entry": entry}
                 except (OSError, StoreError) as exc:
                     warnings.append(f"{path.relative_to(self._root())}: {exc}")
+        if new_files != old_files:
+            atomic_write(cache_path, (json.dumps({"version": 1, "files": new_files}, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8"))
         return result, warnings
 
     @staticmethod
@@ -318,9 +373,11 @@ class WorldStore:
         for stale in versions[:-30]:
             stale.unlink()
 
-    def _write_index(self) -> None:
-        entries, _ = self._read_all()
-        project = json.loads(self._project_file().read_text(encoding="utf-8"))
+    def _write_index(self, entries: list[dict] | None = None, project: dict | None = None) -> None:
+        if entries is None:
+            entries, _ = self._read_all()
+        if project is None:
+            project = json.loads(self._project_file().read_text(encoding="utf-8"))
         lines = [f"# {project['title']}", "", project.get("summary", ""), "", "Документация мира. Записи в папках — исходные Markdown-файлы проекта.", ""]
         for kind, (directory, label) in KINDS.items():
             current = sorted((e for e in entries if e["kind"] == kind and not e.get("deleted")), key=lambda e: e["title"].casefold())
