@@ -3,6 +3,7 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -53,6 +54,24 @@ class ServerTests(unittest.TestCase):
             self.request(f"/api/entry/{entry_id}", "PUT", {"entry": changed, "revision": created["revision"]})
         self.assertEqual(context.exception.code, 409)
         context.exception.close()
+
+    def test_app_theme_is_saved_and_loaded(self):
+        settings_file = Path(self.temp.name) / "settings.json"
+        with patch("worldatlas.server.SETTINGS", settings_file):
+            _, state = self.request("/api/state")
+            self.assertEqual(state["settings"]["theme"], "modern")
+            _, saved = self.request("/api/settings", "PUT", {"theme": "fantasy"})
+            self.assertEqual(saved["theme"], "fantasy")
+            self.assertEqual(json.loads(settings_file.read_text(encoding="utf-8"))["theme"], "fantasy")
+            _, state = self.request("/api/state")
+            self.assertEqual(state["settings"]["theme"], "fantasy")
+            with urlopen(self.base + "/", timeout=5) as response:
+                self.assertIn('data-theme="fantasy"', response.read().decode("utf-8"))
+            with self.assertRaises(HTTPError) as context:
+                self.request("/api/settings", "PUT", {"theme": "unknown"})
+            self.assertEqual(context.exception.code, 400)
+            context.exception.close()
+            self.assertEqual(json.loads(settings_file.read_text(encoding="utf-8"))["theme"], "fantasy")
 
 
 if __name__ == "__main__":

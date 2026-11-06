@@ -10,7 +10,7 @@ const KIND = {
   event: {label:'Хронология', icon:'◷', singular:'событие', fields:[['when','Когда','Дата или относительное время'],['location','Где','Место события'],['participants','Участники','Кто присутствовал?'],['impact','Последствия','Что изменилось?']]},
   other: {label:'Другое', icon:'◌', singular:'эту запись', fields:[['category','Тип','Народ, существо, язык, обычай, технология…'],['role','Значение','Какую роль играет в мире?']]},
 };
-const S = {data:null, view:'dashboard', selected:null, current:null, revision:null, dirty:false, projectSettingsDirty:false, editVersion:0, timer:null, saving:null, conflict:false, inspect:null, toastTimer:null};
+const S = {data:null, settings:{theme:'modern'}, view:'dashboard', selected:null, current:null, revision:null, dirty:false, projectSettingsDirty:false, editVersion:0, timer:null, saving:null, conflict:false, inspect:null, toastTimer:null};
 const GENRES = ['Фэнтези','Научная фантастика','Исторический','Детектив','Приключения','Мистика','Ужасы','Драма','Постапокалипсис'];
 
 function escapeHtml(value='') {return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -28,7 +28,7 @@ async function api(path,method='GET',body=null) {
 }
 
 async function init(){
-  try{const data=await api('/api/state');renderRecents(data.recents||[]);if(data.project_data){S.data=data.project_data;showApp();}else showWelcome();}
+  try{const data=await api('/api/state');S.settings=data.settings||{theme:'modern'};document.body.dataset.theme=S.settings.theme;renderRecents(data.recents||[]);if(data.project_data){S.data=data.project_data;showApp();}else showWelcome();}
   catch(error){showWelcome();showToast(error.message,true);}
   bindGlobal();
 }
@@ -45,6 +45,7 @@ function bindGlobal(){
   $('#search').addEventListener('input',renderList);
   $('#backup-button').onclick=createBackup;
   $('#quit-button').onclick=quitApp;
+  $('#app-settings-button').onclick=showAppSettings;
   $('#modal-close').onclick=closeModal;
   $('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
   document.addEventListener('keydown',e=>{
@@ -137,6 +138,12 @@ async function reloadEntry(){if(S.dirty){openModal('Загрузить верс�
 async function loadEntryFresh(){try{const result=await api(`/api/entry/${S.current.id}`);S.current=result.entry;S.revision=result.revision;S.dirty=false;S.conflict=false;await refreshIndex();renderEditor();status('Все изменения сохранены');}catch(e){showToast(e.message,true);}}
 function openModal(title,body,actions=[]){$('#modal-title').textContent=title;$('#modal-body').innerHTML=body;const box=$('#modal-actions');box.replaceChildren();for(const action of actions){const b=document.createElement('button');b.className=action.className||'secondary-button';b.textContent=action.label;b.onclick=action.onClick;box.append(b);}$('#modal').classList.remove('hidden');}
 function closeModal(){$('#modal').classList.add('hidden');}
+function showAppSettings(){
+  let selected=S.settings.theme;
+  const body=`<p>Оформление применяется ко всем мирам на этом устройстве.</p><div class="theme-choices"><button class="theme-choice ${selected==='modern'?'selected':''}" data-theme-choice="modern" type="button"><span class="theme-swatch swatch-modern"><span></span><span></span></span><strong>Базовое</strong><small>Тёмное, спокойное, с бирюзовыми акцентами</small></button><button class="theme-choice ${selected==='fantasy'?'selected':''}" data-theme-choice="fantasy" type="button"><span class="theme-swatch swatch-fantasy"><span></span><span></span></span><strong>Средневековое / фэнтези</strong><small>Пергамент, тёмное дерево и золото</small></button></div>`;
+  openModal('Настройки приложения',body,[{label:'Отмена',className:'quiet-button',onClick:closeModal},{label:'Применить',className:'primary-button',onClick:async()=>{try{const settings=await api('/api/settings','PUT',{theme:selected});S.settings=settings;document.body.dataset.theme=settings.theme;closeModal();showToast('Оформление сохранено');}catch(error){showToast(error.message,true);}}}]);
+  document.querySelectorAll('[data-theme-choice]').forEach(button=>button.onclick=()=>{selected=button.dataset.themeChoice;document.querySelectorAll('[data-theme-choice]').forEach(choice=>choice.classList.toggle('selected',choice===button));});
+}
 function renderProjectSettings(){
   const p=S.data.project,setup=p.setup_complete===false;
   const genre=GENRES.includes(p.genre)?p.genre:p.genre?'custom':'';

@@ -7,16 +7,17 @@
   <title>Атлас миров</title>
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/project-settings.css">
+  <link rel="stylesheet" href="/fantasy.css">
   <script src="/app.js" defer></script>
 </head>
-<body>
+<body data-theme="__THEME__">
   <div id="app" class="app hidden">
     <aside class="sidebar">
       <div class="brand"><div class="brand-mark">✦</div><div><strong>АТЛАС МИРОВ</strong><small>Истории начинаются здесь</small></div></div>
       <button id="project-switch" class="project-switch" title="Открыть другой проект"><span class="project-switch-icon">◈</span><span class="project-switch-copy"><b id="project-name-side">Проект</b><small>Сменить мир</small></span><span>⌄</span></button>
       <div class="nav-caption">РАБОЧЕЕ ПРОСТРАНСТВО</div>
       <nav id="nav" class="nav"></nav>
-      <div class="sidebar-bottom"><button id="backup-button" class="side-action">⇩ <span>Резервная копия</span></button><button id="quit-button" class="side-action">⏻ <span>Закрыть приложение</span></button></div>
+      <div class="sidebar-bottom"><button id="backup-button" class="side-action">⇩ <span>Резервная копия</span></button><button id="quit-button" class="side-action">⏻ <span>Закрыть приложение</span></button><button id="app-settings-button" class="side-action app-settings-button" title="Настройки приложения" aria-label="Настройки приложения"><span class="settings-gear">⚙</span><span>Настройки приложения</span></button></div>
     </aside>
 
     <main class="workspace">

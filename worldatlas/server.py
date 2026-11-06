@@ -22,6 +22,7 @@ from .storage import StoreError, WorldStore, atomic_write
 WEB_DIR = Path(__file__).resolve().parent / "web"
 APP_DATA = Path(os.environ.get("LOCALAPPDATA") or (Path.home() / ".local" / "share")) / "WorldAtlas"
 RECENTS = APP_DATA / "recent.json"
+SETTINGS = APP_DATA / "settings.json"
 MAX_REQUEST = 20 * 1024 * 1024
 LOG = logging.getLogger("worldatlas")
 
@@ -37,6 +38,25 @@ def read_recents() -> list[str]:
 def add_recent(path: str) -> None:
     current = [p for p in read_recents() if p != path]
     atomic_write(RECENTS, (json.dumps([path, *current][:12], ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
+
+
+def read_settings() -> dict:
+    try:
+        data = json.loads(SETTINGS.read_text(encoding="utf-8"))
+        if isinstance(data, dict) and data.get("theme") in ("modern", "fantasy"):
+            return {"theme": data["theme"]}
+    except (OSError, ValueError, TypeError):
+        pass
+    return {"theme": "modern"}
+
+
+def update_settings(data: dict) -> dict:
+    theme = data.get("theme") if isinstance(data, dict) else None
+    if theme not in ("modern", "fantasy"):
+        raise StoreError("Неизвестная тема оформления")
+    settings = {"theme": theme}
+    atomic_write(SETTINGS, (json.dumps(settings, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
+    return settings
 
 
 def pick_folder() -> str:
@@ -111,9 +131,10 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if method == "GET" and url.path == "/":
                 template = (WEB_DIR / "index.html").read_text(encoding="utf-8")
-                self._bytes(template.replace("__SESSION_TOKEN__", self.server.token).encode("utf-8"), "text/html; charset=utf-8")
+                html = template.replace("__SESSION_TOKEN__", self.server.token).replace("__THEME__", read_settings()["theme"])
+                self._bytes(html.encode("utf-8"), "text/html; charset=utf-8")
                 return
-            if method == "GET" and url.path in ("/app.js", "/style.css", "/project-settings.css"):
+            if method == "GET" and url.path in ("/app.js", "/style.css", "/project-settings.css", "/fantasy.css"):
                 mime = "text/javascript" if url.path.endswith(".js") else "text/css"
                 self._bytes((WEB_DIR / url.path[1:]).read_bytes(), f"{mime}; charset=utf-8")
                 return
@@ -121,7 +142,10 @@ class Handler(BaseHTTPRequestHandler):
                 raise StoreError("Доступ запрещён", 403)
             if method == "GET" and url.path == "/api/state":
                 project = self.server.store.project_data() if self.server.store.root else None
-                self._json({"project_data": project, "recents": read_recents()})
+                self._json({"project_data": project, "recents": read_recents(), "settings": read_settings()})
+                return
+            if method == "PUT" and url.path == "/api/settings":
+                self._json(update_settings(self._body()))
                 return
             if method == "GET" and url.path == "/api/project":
                 self._json(self.server.store.project_data())
