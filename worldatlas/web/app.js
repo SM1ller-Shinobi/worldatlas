@@ -109,13 +109,22 @@ function updateAvatarPanel(){
     const main=document.createElement('div');main.className='editor-main';
     while(editor.firstChild)main.append(editor.firstChild);
     panel=document.createElement('aside');panel.className='avatar-panel';
-    panel.innerHTML='<div class="avatar-ornament">✦ ИЗОБРАЖЕНИЕ МИРА ✦</div><div class="avatar-frame"><img alt=""></div><div class="avatar-caption"></div>';
+    panel.innerHTML='<div class="avatar-frame"><img alt=""></div>';
     editor.append(panel,main);
   }
   const picture=panel.querySelector('img');
+  picture.onload=()=>{
+    const scale=Math.min(232/picture.naturalWidth,325/picture.naturalHeight);
+    if(!Number.isFinite(scale)||scale<=0)return;
+    const width=Math.max(1,Math.round(picture.naturalWidth*scale));
+    const height=Math.max(1,Math.round(picture.naturalHeight*scale));
+    panel.style.width=`${Math.max(170,width+26)}px`;
+    const frame=panel.querySelector('.avatar-frame');
+    frame.style.width=`${width}px`;
+    frame.style.height=`${height}px`;
+  };
   picture.src=`/asset/${S.current.image}?token=${encodeURIComponent(token)}`;
   picture.alt=`Изображение: ${S.current.title}`;
-  panel.querySelector('.avatar-caption').textContent=S.current.title;
   editor.classList.add('avatar-layout');
 }
 async function selectEntry(id){if(S.selected===id)return;if(!await flushSave())return;try{const result=await api(`/api/entry/${id}`);S.selected=id;S.current=result.entry;S.revision=result.revision;S.dirty=false;S.conflict=false;renderList();renderEditor();status('Все изменения сохранены');}catch(e){showToast(e.message,true);}}
@@ -134,7 +143,7 @@ function renderEditor(){const e=S.current;if(!e){renderEmptyEditor();return;}con
   updateAvatarPanel();
   $('#entry-title').addEventListener('input',markDirty);$('#entry-status').addEventListener('change',markDirty);$('#entry-tags').addEventListener('input',markDirty);$('#entry-body').addEventListener('input',markDirty);$('#entry-parent')?.addEventListener('change',markDirty);$('#entry-order')?.addEventListener('input',markDirty);document.querySelectorAll('[data-field]').forEach(el=>el.addEventListener('input',markDirty));document.querySelectorAll('.custom-row input').forEach(el=>el.addEventListener('input',markDirty));document.querySelectorAll('.remove-custom').forEach(el=>el.onclick=()=>{el.closest('.custom-row').remove();markDirty();});$('#add-field').onclick=()=>{const box=document.createElement('div');box.innerHTML=customRow('','');const row=box.firstElementChild;$('#custom-fields').append(row);row.querySelectorAll('input').forEach(i=>i.addEventListener('input',markDirty));row.querySelector('button').onclick=()=>{row.remove();markDirty();};row.querySelector('input').focus();};$('#save-now').onclick=flushSave;$('#trash-entry')?.addEventListener('click',trashEntry);$('#restore-entry')?.addEventListener('click',restoreEntry);$('#download-draft')?.addEventListener('click',downloadDraft);$('#reload-entry')?.addEventListener('click',reloadEntry);$('#upload-image').onclick=()=>$('#image-file').click();$('#image-file').onchange=uploadImage;$('#remove-image')?.addEventListener('click',()=>{S.current.image=null;$('#image-preview').textContent='✧';$('#remove-image').remove();markDirty();});$('#edit-tab').onclick=()=>switchPreview(false);$('#preview-tab').onclick=()=>switchPreview(true);$('#add-link').onclick=addLink;renderLinks();renderBacklinks();
   $('#remove-image')?.addEventListener('click',updateAvatarPanel);
-  $('#entry-title').addEventListener('input',()=>{const caption=$('#editor .avatar-caption'),picture=$('#editor .avatar-frame img');if(caption)caption.textContent=$('#entry-title').value;if(picture)picture.alt=`Изображение: ${$('#entry-title').value}`;});
+  $('#entry-title').addEventListener('input',()=>{const picture=$('#editor .avatar-frame img');if(picture)picture.alt=`Изображение: ${$('#entry-title').value}`;});
 }
 function customRow(key,value){return `<div class="custom-row"><input class="custom-key" value="${escapeHtml(key)}" placeholder="Название поля" maxlength="80"><input class="custom-value" value="${escapeHtml(value)}" placeholder="Значение"><button class="icon-button remove-custom" title="Удалить поле">×</button></div>`;}
 function renderLinks(){const chips=$('#links'),select=$('#link-select');if(!chips||!select)return;const linked=S.current.links||[];chips.replaceChildren();for(const id of linked){const target=S.data.entries.find(x=>x.id===id);const chip=document.createElement('span');chip.className='chip';chip.textContent=target?.title||`Запись ${id.slice(0,8)}`;const remove=document.createElement('button');remove.textContent='×';remove.title='Убрать связь';remove.onclick=()=>{S.current.links=linked.filter(x=>x!==id);renderLinks();markDirty();};chip.append(remove);chips.append(chip);}select.replaceChildren();const options=S.data.entries.filter(x=>!x.deleted&&x.id!==S.current.id&&!linked.includes(x.id)).sort((a,b)=>a.title.localeCompare(b.title,'ru'));const blank=document.createElement('option');blank.value='';blank.textContent=options.length?'Выберите запись':'Нет доступных записей';select.append(blank);for(const e of options){const option=document.createElement('option');option.value=e.id;option.textContent=`${KIND[e.kind].label}: ${e.title}`;select.append(option);}}
@@ -159,13 +168,45 @@ function chooseKind(){return new Promise(resolve=>{openModal('Новая зап�
 function switchPreview(show){$('#body-preview').classList.toggle('hidden',!show);$('#entry-body').classList.toggle('hidden',show);$('#preview-tab').classList.toggle('active',show);$('#edit-tab').classList.toggle('active',!show);if(show)$('#body-preview').innerHTML=renderMarkdown($('#entry-body').value);}
 function inlineMarkdown(text){return escapeHtml(text).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>').replace(/`([^`]+)`/g,'<code>$1</code>');}
 function renderMarkdown(text){if(!text.trim())return '<p class="placeholder">Пока нет описания.</p>';return text.split(/\r?\n/).map(line=>{const match=line.match(/^(#{1,3})\s+(.+)$/);if(match){const n=match[1].length;return `<h${n}>${inlineMarkdown(match[2])}</h${n}>`;}if(/^\s*[-*]\s+/.test(line))return `<p>• ${inlineMarkdown(line.replace(/^\s*[-*]\s+/,''))}</p>`;if(!line.trim())return '<br>';return `<p>${inlineMarkdown(line)}</p>`;}).join('');}
+async function prepareAvatarPng(file){
+  const bitmap=await createImageBitmap(file);
+  try{
+    if(bitmap.width*bitmap.height>24_000_000)throw new Error('Разрешение изображения слишком велико. Уменьшите его перед загрузкой.');
+    const source=document.createElement('canvas');source.width=bitmap.width;source.height=bitmap.height;
+    const context=source.getContext('2d',{willReadFrequently:true});context.drawImage(bitmap,0,0);
+    const {data}=context.getImageData(0,0,bitmap.width,bitmap.height),width=bitmap.width,height=bitmap.height;
+    const corners=[0,width-1,(height-1)*width,height*width-1].map(i=>i*4);
+    const transparent=corners.some(i=>data[i+3]<250);
+    const white=!transparent&&corners.every(i=>data[i]>=245&&data[i+1]>=245&&data[i+2]>=245);
+    let left=width,top=height,right=-1,bottom=-1;
+    if(transparent||white){
+      for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+        const i=(y*width+x)*4;
+        const filled=transparent?data[i+3]>8:data[i+3]>8&&(data[i]<245||data[i+1]<245||data[i+2]<245);
+        if(filled){left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x);bottom=Math.max(bottom,y);}
+      }
+    }
+    if(right<left){left=0;top=0;right=width-1;bottom=height-1;}
+    left=Math.max(0,left-2);top=Math.max(0,top-2);right=Math.min(width-1,right+2);bottom=Math.min(height-1,bottom+2);
+    const cropWidth=right-left+1,cropHeight=bottom-top+1;
+    const scale=Math.min(1,1600/Math.max(cropWidth,cropHeight));
+    if(left===0&&top===0&&cropWidth===width&&cropHeight===height&&scale===1)return file;
+    const result=document.createElement('canvas');result.width=Math.max(1,Math.round(cropWidth*scale));result.height=Math.max(1,Math.round(cropHeight*scale));
+    result.getContext('2d').drawImage(source,left,top,cropWidth,cropHeight,0,0,result.width,result.height);
+    const blob=await new Promise(resolve=>result.toBlob(resolve,'image/png'));
+    if(!blob)throw new Error('Не удалось подготовить PNG.');
+    if(blob.size>12*1024*1024)throw new Error('После обработки изображение больше 12 МБ. Уменьшите его перед загрузкой.');
+    return blob;
+  }finally{bitmap.close();}
+}
 async function uploadImage(){
   const input=$('#image-file'),file=input.files?.[0];input.value='';
   if(!file)return;
   if(file.type&&file.type!=='image/png'){showToast('Выберите изображение PNG.',true);return;}
   if(file.size>12*1024*1024){showToast('Изображение больше 12 МБ.',true);return;}
   try{
-    const buffer=await file.arrayBuffer(),bytes=new Uint8Array(buffer);let binary='';
+    const prepared=await prepareAvatarPng(file);
+    const buffer=await prepared.arrayBuffer(),bytes=new Uint8Array(buffer);let binary='';
     for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));
     const result=await api('/api/image','POST',{name:file.name,data:btoa(binary)});
     S.current.image=result.asset;

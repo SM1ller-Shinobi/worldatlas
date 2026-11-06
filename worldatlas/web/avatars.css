@@ -35,7 +35,7 @@
   background: var(--muted);
   transition: transform .18s ease, background .18s ease;
 }
-.avatar-setting input:checked { background: var(--accent); border-color: var(--accent); }
+.modal-card .avatar-setting input:checked { background: var(--accent); border-color: var(--accent); }
 .avatar-setting input:checked::after { transform: translateX(20px); background: var(--bg); }
 .avatar-setting input:focus-visible { outline: 2px solid var(--accent2); outline-offset: 3px; }
 
@@ -47,7 +47,7 @@
 }
 .editor.avatar-layout {
   display: grid;
-  grid-template-columns: minmax(210px, 260px) minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   align-content: start;
   gap: 24px;
   padding: 28px 26px;
@@ -61,26 +61,19 @@
   top: 0;
   align-self: start;
   min-width: 0;
+  width: 258px;
   padding: 12px;
   background: linear-gradient(145deg, var(--panel2), var(--panel));
   border: 1px solid var(--line2);
   border-radius: 15px;
   box-shadow: var(--shadow);
 }
-.avatar-ornament {
-  color: var(--accent);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .12em;
-  text-align: center;
-  padding: 5px 0 12px;
-}
 .avatar-frame {
-  width: 100%;
-  aspect-ratio: 4 / 5;
-  max-height: 325px;
+  width: 232px;
+  height: 290px;
   display: grid;
   place-items: center;
+  margin: auto;
   overflow: hidden;
   border: 1px solid var(--line2);
   border-radius: 9px;
@@ -88,7 +81,6 @@
   box-shadow: inset 0 0 0 5px #0d121b55;
 }
 .avatar-frame img { display: block; width: 100%; height: 100%; object-fit: contain; }
-.avatar-caption { color: var(--muted); font-size: 12px; text-align: center; padding: 12px 4px 3px; overflow-wrap: anywhere; }
 
 body[data-theme="fantasy"] .avatar-panel {
   background: linear-gradient(145deg, #50371f, #2c2118);
@@ -102,8 +94,8 @@ body[data-theme="fantasy"] .avatar-frame {
   border-radius: 2px;
   box-shadow: inset 0 0 0 5px #d5ad6722;
 }
-body[data-theme="fantasy"] .avatar-ornament { color: #e4bc72; }
 body[data-theme="fantasy"] .modal-card .avatar-setting { border-radius: 4px; background: #38291c; }
+body[data-theme="fantasy"] .modal-card .avatar-setting input:checked { background: #d5ad67; border-color: #f2d593; }
 
 @media (max-width: 1450px) {
   .editor.avatar-layout .field-grid { grid-template-columns: 1fr; }
