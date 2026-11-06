@@ -44,17 +44,23 @@ def read_settings() -> dict:
     try:
         data = json.loads(SETTINGS.read_text(encoding="utf-8"))
         if isinstance(data, dict) and data.get("theme") in ("modern", "fantasy"):
-            return {"theme": data["theme"]}
+            return {"theme": data["theme"], "avatars_enabled": data.get("avatars_enabled") is True}
     except (OSError, ValueError, TypeError):
         pass
-    return {"theme": "modern"}
+    return {"theme": "modern", "avatars_enabled": False}
 
 
 def update_settings(data: dict) -> dict:
-    theme = data.get("theme") if isinstance(data, dict) else None
+    if not isinstance(data, dict):
+        raise StoreError("Неверные настройки приложения")
+    current = read_settings()
+    theme = data.get("theme", current["theme"])
     if theme not in ("modern", "fantasy"):
         raise StoreError("Неизвестная тема оформления")
-    settings = {"theme": theme}
+    avatars_enabled = data.get("avatars_enabled", current["avatars_enabled"])
+    if not isinstance(avatars_enabled, bool):
+        raise StoreError("Настройка аватаров должна быть включена или выключена")
+    settings = {"theme": theme, "avatars_enabled": avatars_enabled}
     atomic_write(SETTINGS, (json.dumps(settings, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
     return settings
 
@@ -134,7 +140,7 @@ class Handler(BaseHTTPRequestHandler):
                 html = template.replace("__SESSION_TOKEN__", self.server.token).replace("__THEME__", read_settings()["theme"])
                 self._bytes(html.encode("utf-8"), "text/html; charset=utf-8")
                 return
-            if method == "GET" and url.path in ("/app.js", "/style.css", "/project-settings.css", "/fantasy.css"):
+            if method == "GET" and url.path in ("/app.js", "/style.css", "/project-settings.css", "/fantasy.css", "/avatars.css"):
                 mime = "text/javascript" if url.path.endswith(".js") else "text/css"
                 self._bytes((WEB_DIR / url.path[1:]).read_bytes(), f"{mime}; charset=utf-8")
                 return

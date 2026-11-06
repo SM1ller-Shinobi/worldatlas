@@ -60,18 +60,29 @@ class ServerTests(unittest.TestCase):
         with patch("worldatlas.server.SETTINGS", settings_file):
             _, state = self.request("/api/state")
             self.assertEqual(state["settings"]["theme"], "modern")
-            _, saved = self.request("/api/settings", "PUT", {"theme": "fantasy"})
+            self.assertFalse(state["settings"]["avatars_enabled"])
+            _, saved = self.request("/api/settings", "PUT", {"theme": "fantasy", "avatars_enabled": True})
             self.assertEqual(saved["theme"], "fantasy")
+            self.assertTrue(saved["avatars_enabled"])
             self.assertEqual(json.loads(settings_file.read_text(encoding="utf-8"))["theme"], "fantasy")
             _, state = self.request("/api/state")
             self.assertEqual(state["settings"]["theme"], "fantasy")
+            self.assertTrue(state["settings"]["avatars_enabled"])
             with urlopen(self.base + "/", timeout=5) as response:
                 self.assertIn('data-theme="fantasy"', response.read().decode("utf-8"))
+            _, saved = self.request("/api/settings", "PUT", {"theme": "modern"})
+            self.assertTrue(saved["avatars_enabled"])
+            with self.assertRaises(HTTPError) as context:
+                self.request("/api/settings", "PUT", {"avatars_enabled": "yes"})
+            self.assertEqual(context.exception.code, 400)
+            context.exception.close()
             with self.assertRaises(HTTPError) as context:
                 self.request("/api/settings", "PUT", {"theme": "unknown"})
             self.assertEqual(context.exception.code, 400)
             context.exception.close()
-            self.assertEqual(json.loads(settings_file.read_text(encoding="utf-8"))["theme"], "fantasy")
+            self.assertEqual(json.loads(settings_file.read_text(encoding="utf-8"))["theme"], "modern")
+            settings_file.write_text('{"theme":"fantasy"}', encoding="utf-8")
+            self.assertFalse(self.request("/api/state")[1]["settings"]["avatars_enabled"])
 
 
 if __name__ == "__main__":

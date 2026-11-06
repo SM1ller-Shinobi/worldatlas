@@ -10,7 +10,7 @@ const KIND = {
   event: {label:'Хронология', icon:'◷', singular:'событие', fields:[['when','Когда','Дата или относительное время'],['location','Где','Место события'],['participants','Участники','Кто присутствовал?'],['impact','Последствия','Что изменилось?']]},
   other: {label:'Другое', icon:'◌', singular:'эту запись', fields:[['category','Тип','Народ, существо, язык, обычай, технология…'],['role','Значение','Какую роль играет в мире?']]},
 };
-const S = {data:null, settings:{theme:'modern'}, view:'dashboard', selected:null, current:null, revision:null, dirty:false, projectSettingsDirty:false, editVersion:0, timer:null, saving:null, conflict:false, inspect:null, toastTimer:null};
+const S = {data:null, settings:{theme:'modern',avatars_enabled:false}, view:'dashboard', selected:null, current:null, revision:null, dirty:false, projectSettingsDirty:false, editVersion:0, timer:null, saving:null, conflict:false, inspect:null, toastTimer:null};
 const GENRES = ['Фэнтези','Научная фантастика','Исторический','Детектив','Приключения','Мистика','Ужасы','Драма','Постапокалипсис'];
 
 function escapeHtml(value='') {return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -28,7 +28,7 @@ async function api(path,method='GET',body=null) {
 }
 
 async function init(){
-  try{const data=await api('/api/state');S.settings=data.settings||{theme:'modern'};document.body.dataset.theme=S.settings.theme;renderRecents(data.recents||[]);if(data.project_data){S.data=data.project_data;showApp();}else showWelcome();}
+  try{const data=await api('/api/state');S.settings=data.settings||{theme:'modern',avatars_enabled:false};document.body.dataset.theme=S.settings.theme;renderRecents(data.recents||[]);if(data.project_data){S.data=data.project_data;showApp();}else showWelcome();}
   catch(error){showWelcome();showToast(error.message,true);}
   bindGlobal();
 }
@@ -93,7 +93,31 @@ function renderList(){
     b.onclick=()=>selectEntry(e.id);list.append(b);
   }
 }
-function renderEmptyEditor(){$('#editor').innerHTML='<div class="empty-editor"><div class="empty-symbol">✧</div><h2>Выберите запись</h2><p>Или создайте новую, чтобы начать описывать мир.</p></div>';}
+function renderEmptyEditor(){const editor=$('#editor');editor.classList.remove('avatar-layout');$('#content').classList.remove('avatar-active');editor.innerHTML='<div class="empty-editor"><div class="empty-symbol">✧</div><h2>Выберите запись</h2><p>Или создайте новую, чтобы начать описывать мир.</p></div>';}
+function updateAvatarPanel(){
+  const editor=$('#editor');
+  if(!editor)return;
+  const visible=Boolean(S.settings.avatars_enabled&&S.current?.image);
+  $('#content').classList.toggle('avatar-active',visible);
+  let panel=editor.querySelector('.avatar-panel');
+  if(!visible){
+    if(panel){const main=editor.querySelector('.editor-main');main.replaceWith(...Array.from(main.childNodes));panel.remove();}
+    editor.classList.remove('avatar-layout');
+    return;
+  }
+  if(!panel){
+    const main=document.createElement('div');main.className='editor-main';
+    while(editor.firstChild)main.append(editor.firstChild);
+    panel=document.createElement('aside');panel.className='avatar-panel';
+    panel.innerHTML='<div class="avatar-ornament">✦ ИЗОБРАЖЕНИЕ МИРА ✦</div><div class="avatar-frame"><img alt=""></div><div class="avatar-caption"></div>';
+    editor.append(panel,main);
+  }
+  const picture=panel.querySelector('img');
+  picture.src=`/asset/${S.current.image}?token=${encodeURIComponent(token)}`;
+  picture.alt=`Изображение: ${S.current.title}`;
+  panel.querySelector('.avatar-caption').textContent=S.current.title;
+  editor.classList.add('avatar-layout');
+}
 async function selectEntry(id){if(S.selected===id)return;if(!await flushSave())return;try{const result=await api(`/api/entry/${id}`);S.selected=id;S.current=result.entry;S.revision=result.revision;S.dirty=false;S.conflict=false;renderList();renderEditor();status('Все изменения сохранены');}catch(e){showToast(e.message,true);}}
 function fieldInput(key,label,placeholder){return `<div class="full-field"><label>${escapeHtml(label)}</label><textarea data-field="${escapeHtml(key)}" rows="2" placeholder="${escapeHtml(placeholder)}">${escapeHtml(S.current.fields?.[key]||'')}</textarea></div>`;}
 function renderEditor(){const e=S.current;if(!e){renderEmptyEditor();return;}const k=KIND[e.kind],fixed=new Set(k.fields.map(x=>x[0]));const extra=Object.entries(e.fields||{}).filter(([key])=>!fixed.has(key));const parents=S.data.entries.filter(x=>x.kind==='story'&&!x.deleted&&x.id!==e.id);const kindFields=k.fields.map(f=>fieldInput(...f)).join('');const image=e.image?`<img src="/asset/${e.image}?token=${encodeURIComponent(token)}" alt="Изображение записи">`:'✧';$('#editor').innerHTML=`<div class="editor-top"><span class="eyebrow">${k.label.toUpperCase()} / ${escapeHtml(e.status||'Черновик')}</span><div class="editor-buttons">${e.deleted?'<button id="restore-entry" class="secondary-button">Восстановить</button>':'<button id="trash-entry" class="quiet-button">В корзину</button>'}</div></div><input id="entry-title" class="editor-title" maxlength="160" value="${escapeHtml(e.title)}" placeholder="Название записи"><div class="editor-subtitle">Создано ${formatDate(e.created_at)} · Изменено ${formatDate(e.updated_at)} · ${e.id.slice(0,8)}</div><div id="conflict-banner" class="warnings ${S.conflict?'':'hidden'}">Файл изменился вне приложения. Ваш текст остался в редакторе. <button id="download-draft" class="small-link">Скачать мои правки</button><button id="reload-entry" class="small-link">Загрузить файл с диска</button></div><div class="editor-card"><h3>Основное</h3><div class="field-grid"><div class="field"><label for="entry-status">Статус</label><select id="entry-status">${['Черновик','В работе','Канон','Архив'].map(v=>`<option ${e.status===v?'selected':''}>${v}</option>`).join('')}</select></div><div class="field"><label for="entry-tags">Метки</label><input id="entry-tags" value="${escapeHtml((e.tags||[]).join(', '))}" placeholder="Через запятую"></div>${e.kind==='story'?`<div class="field"><label for="entry-parent">Внутри</label><select id="entry-parent"><option value="">Корень сюжета</option>${parents.map(p=>`<option value="${p.id}" ${e.parent_id===p.id?'selected':''}>${escapeHtml(p.title)}</option>`).join('')}</select></div><div class="field"><label for="entry-order">Порядок</label><input id="entry-order" type="number" min="0" max="99999" value="${e.order||0}"></div>`:''}</div></div><div class="editor-card"><h3>Детали ${k.singular}</h3><div class="field-grid">${kindFields}</div><div id="custom-fields" style="margin-top:14px">${extra.map(([key,value])=>customRow(key,value)).join('')}</div><button id="add-field" class="small-link">＋ Добавить своё поле</button></div><div class="editor-card body-card"><div class="body-toolbar"><h3>Подробное описание</h3><div class="tab-buttons"><button id="edit-tab" class="active">Редактор</button><button id="preview-tab">Просмотр</button></div></div><textarea id="entry-body" class="body-input" placeholder="Расскажите историю подробно. Можно использовать Markdown: заголовки, списки, выделение…">${escapeHtml(e.body||'')}</textarea><div id="body-preview" class="body-preview hidden"></div></div><div class="editor-card"><h3>Изображение</h3><div class="image-area"><div id="image-preview" class="image-preview">${image}</div><div class="image-controls"><button id="upload-image" class="secondary-button">Выбрать изображение</button>${e.image?'<button id="remove-image" class="small-link">Убрать из записи</button>':''}<small>PNG, JPEG, WebP или GIF · до 12 МБ</small><input id="image-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden></div></div></div><div class="editor-card"><h3>Связи с другими записями</h3><div id="links" class="link-list"></div><div class="link-adder"><select id="link-select"></select><button id="add-link" class="secondary-button">Связать</button></div></div><div class="editor-bottom"><span>Изменения сохраняются автоматически. Ctrl+S — сохранить сейчас.</span><button id="save-now" class="small-link">Сохранить</button></div>`;
@@ -105,7 +129,12 @@ function renderEditor(){const e=S.current;if(!e){renderEmptyEditor();return;}con
   if(e.status&&!Array.from($('#entry-status').options).some(option=>option.value===e.status)){
     const option=document.createElement('option');option.value=e.status;option.textContent=e.status;$('#entry-status').append(option);$('#entry-status').value=e.status;
   }
+  $('#image-file').accept='image/png,.png';
+  $('#image-preview').parentElement.querySelector('small').textContent='PNG · до 12 МБ. Ранее загруженные изображения других форматов остаются доступными.';
+  updateAvatarPanel();
   $('#entry-title').addEventListener('input',markDirty);$('#entry-status').addEventListener('change',markDirty);$('#entry-tags').addEventListener('input',markDirty);$('#entry-body').addEventListener('input',markDirty);$('#entry-parent')?.addEventListener('change',markDirty);$('#entry-order')?.addEventListener('input',markDirty);document.querySelectorAll('[data-field]').forEach(el=>el.addEventListener('input',markDirty));document.querySelectorAll('.custom-row input').forEach(el=>el.addEventListener('input',markDirty));document.querySelectorAll('.remove-custom').forEach(el=>el.onclick=()=>{el.closest('.custom-row').remove();markDirty();});$('#add-field').onclick=()=>{const box=document.createElement('div');box.innerHTML=customRow('','');const row=box.firstElementChild;$('#custom-fields').append(row);row.querySelectorAll('input').forEach(i=>i.addEventListener('input',markDirty));row.querySelector('button').onclick=()=>{row.remove();markDirty();};row.querySelector('input').focus();};$('#save-now').onclick=flushSave;$('#trash-entry')?.addEventListener('click',trashEntry);$('#restore-entry')?.addEventListener('click',restoreEntry);$('#download-draft')?.addEventListener('click',downloadDraft);$('#reload-entry')?.addEventListener('click',reloadEntry);$('#upload-image').onclick=()=>$('#image-file').click();$('#image-file').onchange=uploadImage;$('#remove-image')?.addEventListener('click',()=>{S.current.image=null;$('#image-preview').textContent='✧';$('#remove-image').remove();markDirty();});$('#edit-tab').onclick=()=>switchPreview(false);$('#preview-tab').onclick=()=>switchPreview(true);$('#add-link').onclick=addLink;renderLinks();renderBacklinks();
+  $('#remove-image')?.addEventListener('click',updateAvatarPanel);
+  $('#entry-title').addEventListener('input',()=>{const caption=$('#editor .avatar-caption'),picture=$('#editor .avatar-frame img');if(caption)caption.textContent=$('#entry-title').value;if(picture)picture.alt=`Изображение: ${$('#entry-title').value}`;});
 }
 function customRow(key,value){return `<div class="custom-row"><input class="custom-key" value="${escapeHtml(key)}" placeholder="Название поля" maxlength="80"><input class="custom-value" value="${escapeHtml(value)}" placeholder="Значение"><button class="icon-button remove-custom" title="Удалить поле">×</button></div>`;}
 function renderLinks(){const chips=$('#links'),select=$('#link-select');if(!chips||!select)return;const linked=S.current.links||[];chips.replaceChildren();for(const id of linked){const target=S.data.entries.find(x=>x.id===id);const chip=document.createElement('span');chip.className='chip';chip.textContent=target?.title||`Запись ${id.slice(0,8)}`;const remove=document.createElement('button');remove.textContent='×';remove.title='Убрать связь';remove.onclick=()=>{S.current.links=linked.filter(x=>x!==id);renderLinks();markDirty();};chip.append(remove);chips.append(chip);}select.replaceChildren();const options=S.data.entries.filter(x=>!x.deleted&&x.id!==S.current.id&&!linked.includes(x.id)).sort((a,b)=>a.title.localeCompare(b.title,'ru'));const blank=document.createElement('option');blank.value='';blank.textContent=options.length?'Выберите запись':'Нет доступных записей';select.append(blank);for(const e of options){const option=document.createElement('option');option.value=e.id;option.textContent=`${KIND[e.kind].label}: ${e.title}`;select.append(option);}}
@@ -130,7 +159,25 @@ function chooseKind(){return new Promise(resolve=>{openModal('Новая зап�
 function switchPreview(show){$('#body-preview').classList.toggle('hidden',!show);$('#entry-body').classList.toggle('hidden',show);$('#preview-tab').classList.toggle('active',show);$('#edit-tab').classList.toggle('active',!show);if(show)$('#body-preview').innerHTML=renderMarkdown($('#entry-body').value);}
 function inlineMarkdown(text){return escapeHtml(text).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>').replace(/`([^`]+)`/g,'<code>$1</code>');}
 function renderMarkdown(text){if(!text.trim())return '<p class="placeholder">Пока нет описания.</p>';return text.split(/\r?\n/).map(line=>{const match=line.match(/^(#{1,3})\s+(.+)$/);if(match){const n=match[1].length;return `<h${n}>${inlineMarkdown(match[2])}</h${n}>`;}if(/^\s*[-*]\s+/.test(line))return `<p>• ${inlineMarkdown(line.replace(/^\s*[-*]\s+/,''))}</p>`;if(!line.trim())return '<br>';return `<p>${inlineMarkdown(line)}</p>`;}).join('');}
-async function uploadImage(){const file=$('#image-file').files?.[0];if(!file)return;if(file.size>12*1024*1024){showToast('Изображение больше 12 МБ.',true);return;}try{const buffer=await file.arrayBuffer();const bytes=new Uint8Array(buffer);let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));const result=await api('/api/image','POST',{name:file.name,data:btoa(binary)});S.current.image=result.asset;$('#image-preview').innerHTML=`<img src="/asset/${result.asset}?token=${encodeURIComponent(token)}" alt="Изображение записи">`;if(!$('#remove-image')){const b=document.createElement('button');b.id='remove-image';b.className='small-link';b.textContent='Убрать из записи';b.onclick=()=>{S.current.image=null;$('#image-preview').textContent='✧';b.remove();markDirty();};$('#upload-image').after(b);}markDirty();showToast('Изображение добавлено');}catch(e){showToast(e.message,true);}}
+async function uploadImage(){
+  const input=$('#image-file'),file=input.files?.[0];input.value='';
+  if(!file)return;
+  if(file.type&&file.type!=='image/png'){showToast('Выберите изображение PNG.',true);return;}
+  if(file.size>12*1024*1024){showToast('Изображение больше 12 МБ.',true);return;}
+  try{
+    const buffer=await file.arrayBuffer(),bytes=new Uint8Array(buffer);let binary='';
+    for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));
+    const result=await api('/api/image','POST',{name:file.name,data:btoa(binary)});
+    S.current.image=result.asset;
+    $('#image-preview').innerHTML=`<img src="/asset/${result.asset}?token=${encodeURIComponent(token)}" alt="Изображение записи">`;
+    if(!$('#remove-image')){
+      const button=document.createElement('button');button.id='remove-image';button.className='small-link';button.textContent='Убрать из записи';
+      button.onclick=()=>{S.current.image=null;$('#image-preview').textContent='✧';button.remove();updateAvatarPanel();markDirty();};
+      $('#upload-image').after(button);
+    }
+    updateAvatarPanel();markDirty();showToast('Изображение добавлено');
+  }catch(error){showToast(error.message,true);}
+}
 async function trashEntry(){if(!await flushSave())return;openModal('Переместить в корзину?',`<p>«${escapeHtml(S.current.title)}» исчезнет из оглавления, но файл останется в проекте. Запись можно восстановить.</p>`,[{label:'Отмена',className:'quiet-button',onClick:closeModal},{label:'В корзину',className:'danger-button',onClick:async()=>{try{await api(`/api/entry/${S.current.id}/trash`,'POST',{revision:S.revision});closeModal();S.selected=null;S.current=null;await refreshIndex();renderView();showToast('Запись перемещена в корзину');}catch(e){showToast(e.message,true);}}}]);}
 async function restoreEntry(){try{const result=await api(`/api/entry/${S.current.id}/restore`,'POST',{revision:S.revision});S.current=result.entry;S.revision=result.revision;await refreshIndex();renderEditor();showToast('Запись восстановлена');}catch(e){showToast(e.message,true);}}
 function downloadDraft(){const data=collectEntry();const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`worldatlas-draft-${data.id.slice(0,8)}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);}
@@ -140,8 +187,8 @@ function openModal(title,body,actions=[]){$('#modal-title').textContent=title;$(
 function closeModal(){$('#modal').classList.add('hidden');}
 function showAppSettings(){
   let selected=S.settings.theme;
-  const body=`<p>Оформление применяется ко всем мирам на этом устройстве.</p><div class="theme-choices"><button class="theme-choice ${selected==='modern'?'selected':''}" data-theme-choice="modern" type="button"><span class="theme-swatch swatch-modern"><span></span><span></span></span><strong>Базовое</strong><small>Тёмное, спокойное, с бирюзовыми акцентами</small></button><button class="theme-choice ${selected==='fantasy'?'selected':''}" data-theme-choice="fantasy" type="button"><span class="theme-swatch swatch-fantasy"><span></span><span></span></span><strong>Средневековое / фэнтези</strong><small>Пергамент, тёмное дерево и золото</small></button></div>`;
-  openModal('Настройки приложения',body,[{label:'Отмена',className:'quiet-button',onClick:closeModal},{label:'Применить',className:'primary-button',onClick:async()=>{try{const settings=await api('/api/settings','PUT',{theme:selected});S.settings=settings;document.body.dataset.theme=settings.theme;closeModal();showToast('Оформление сохранено');}catch(error){showToast(error.message,true);}}}]);
+  const body=`<p>Оформление применяется ко всем мирам на этом устройстве.</p><div class="theme-choices"><button class="theme-choice ${selected==='modern'?'selected':''}" data-theme-choice="modern" type="button"><span class="theme-swatch swatch-modern"><span></span><span></span></span><strong>Базовое</strong><small>Тёмное, спокойное, с бирюзовыми акцентами</small></button><button class="theme-choice ${selected==='fantasy'?'selected':''}" data-theme-choice="fantasy" type="button"><span class="theme-swatch swatch-fantasy"><span></span><span></span></span><strong>Средневековое / фэнтези</strong><small>Пергамент, тёмное дерево и золото</small></button></div><label class="avatar-setting" for="avatars-enabled"><span><strong>Аватары</strong><small>Показывать изображение рядом с редактором записи</small></span><input id="avatars-enabled" type="checkbox" role="switch" ${S.settings.avatars_enabled?'checked':''}></label>`;
+  openModal('Настройки приложения',body,[{label:'Отмена',className:'quiet-button',onClick:closeModal},{label:'Применить',className:'primary-button',onClick:async()=>{try{const settings=await api('/api/settings','PUT',{theme:selected,avatars_enabled:$('#avatars-enabled').checked});S.settings=settings;document.body.dataset.theme=settings.theme;updateAvatarPanel();closeModal();showToast('Настройки приложения сохранены');}catch(error){showToast(error.message,true);}}}]);
   document.querySelectorAll('[data-theme-choice]').forEach(button=>button.onclick=()=>{selected=button.dataset.themeChoice;document.querySelectorAll('[data-theme-choice]').forEach(choice=>choice.classList.toggle('selected',choice===button));});
 }
 function renderProjectSettings(){

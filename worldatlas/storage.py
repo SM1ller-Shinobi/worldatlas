@@ -400,14 +400,9 @@ class WorldStore:
         with self.lock:
             if not data or len(data) > MAX_IMAGE_BYTES:
                 raise StoreError("Изображение должно быть не больше 12 МБ")
-            signatures = [(b"\x89PNG\r\n\x1a\n", "png"), (b"\xff\xd8\xff", "jpg"),
-                          (b"RIFF", "webp"), (b"GIF87a", "gif"), (b"GIF89a", "gif")]
-            extension = next((ext for magic, ext in signatures if data.startswith(magic)), None)
-            if extension == "webp" and data[8:12] != b"WEBP":
-                extension = None
-            if extension is None:
-                raise StoreError("Поддерживаются PNG, JPEG, WebP и GIF")
-            asset = f"{uuid.uuid4().hex}.{extension}"
+            if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+                raise StoreError("Для новых изображений используйте PNG")
+            asset = f"{uuid.uuid4().hex}.png"
             atomic_write(self._root() / "assets" / asset, data)
             return {"asset": asset, "name": filename}
 

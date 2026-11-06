@@ -133,8 +133,14 @@ class StorageTests(unittest.TestCase):
     def test_image_validation(self):
         with self.assertRaises(StoreError):
             self.store.add_image("bad.svg", b"<svg></svg>")
+        with self.assertRaises(StoreError):
+            self.store.add_image("old.jpg", b"\xff\xd8\xffdata")
         image = self.store.add_image("portrait.png", b"\x89PNG\r\n\x1a\n" + b"data")
+        self.assertTrue(image["asset"].endswith(".png"))
         self.assertTrue(self.store.asset_path(image["asset"]).is_file())
+        legacy = "a" * 32 + ".jpg"
+        (self.folder / "assets" / legacy).write_bytes(b"\xff\xd8\xffdata")
+        self.assertTrue(self.store.asset_path(legacy).is_file())
         with self.assertRaises(StoreError):
             self.store.asset_path("../worldatlas.json")
 
