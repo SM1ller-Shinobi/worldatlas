@@ -1,0 +1,28 @@
+.link-adder select {
+  appearance: auto;
+  color-scheme: dark;
+  background: #101a27;
+  color: var(--text);
+  border: 1px solid #33485c;
+  border-radius: 8px;
+  padding: 10px 11px;
+  outline: 0;
+  font-size: 13px;
+}
+.link-adder select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px #74c9c018;
+}
+.link-adder select option {
+  background: #101a27;
+  color: var(--text);
+}
+body[data-theme="fantasy"] .link-adder select,
+body[data-theme="fantasy"] .link-adder select option {
+  background: #211a15;
+  color: #f4e5c5;
+  border-color: #785a38;
+}
+body[data-theme="fantasy"] .link-adder select {
+  border-radius: 3px;
+}
