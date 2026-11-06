@@ -48,9 +48,11 @@ function bindGlobal(){
   $('#app-settings-button').onclick=showAppSettings;
   $('#modal-close').onclick=closeModal;
   $('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
+  $('#lightbox-close').onclick=closeImageLightbox;
+  $('#image-lightbox').addEventListener('click',e=>{if(e.target.id==='image-lightbox')closeImageLightbox();});
   document.addEventListener('keydown',e=>{
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();S.view==='project_settings'?saveProjectSettings():flushSave();}
-    if(e.key==='Escape')closeModal();
+    if(e.key==='Escape'){closeImageLightbox();closeModal();}
   });
   document.addEventListener('visibilitychange',()=>{if(document.hidden&&S.dirty)flushSave();});
   window.addEventListener('beforeunload',e=>{if(S.dirty||S.saving||S.projectSettingsDirty){e.preventDefault();e.returnValue='';}});
@@ -109,10 +111,11 @@ function updateAvatarPanel(){
     const main=document.createElement('div');main.className='editor-main';
     while(editor.firstChild)main.append(editor.firstChild);
     panel=document.createElement('aside');panel.className='avatar-panel';
-    panel.innerHTML='<div class="avatar-frame"><img alt=""></div>';
+    panel.innerHTML='<button class="avatar-frame" type="button" aria-label="Открыть изображение"><img alt=""></button>';
     editor.append(panel,main);
   }
   const picture=panel.querySelector('img');
+  panel.querySelector('.avatar-frame').onclick=()=>openImageLightbox(picture.src,picture.alt);
   picture.onload=()=>{
     const scale=Math.min(232/picture.naturalWidth,325/picture.naturalHeight);
     if(!Number.isFinite(scale)||scale<=0)return;
@@ -226,6 +229,17 @@ async function reloadEntry(){if(S.dirty){openModal('Загрузить верс�
 async function loadEntryFresh(){try{const result=await api(`/api/entry/${S.current.id}`);S.current=result.entry;S.revision=result.revision;S.dirty=false;S.conflict=false;await refreshIndex();renderEditor();status('Все изменения сохранены');}catch(e){showToast(e.message,true);}}
 function openModal(title,body,actions=[]){$('#modal-title').textContent=title;$('#modal-body').innerHTML=body;const box=$('#modal-actions');box.replaceChildren();for(const action of actions){const b=document.createElement('button');b.className=action.className||'secondary-button';b.textContent=action.label;b.onclick=action.onClick;box.append(b);}$('#modal').classList.remove('hidden');}
 function closeModal(){$('#modal').classList.add('hidden');}
+function openImageLightbox(source,description){
+  const image=$('#lightbox-image');image.src=source;image.alt=description;
+  $('#image-lightbox').classList.remove('hidden');
+  $('#lightbox-close').focus();
+}
+function closeImageLightbox(){
+  if($('#image-lightbox').classList.contains('hidden'))return;
+  $('#image-lightbox').classList.add('hidden');
+  $('#lightbox-image').removeAttribute('src');
+  $('#editor .avatar-frame')?.focus();
+}
 function showAppSettings(){
   let selected=S.settings.theme;
   const body=`<p>Оформление применяется ко всем мирам на этом устройстве.</p><div class="theme-choices"><button class="theme-choice ${selected==='modern'?'selected':''}" data-theme-choice="modern" type="button"><span class="theme-swatch swatch-modern"><span></span><span></span></span><strong>Базовое</strong><small>Тёмное, спокойное, с бирюзовыми акцентами</small></button><button class="theme-choice ${selected==='fantasy'?'selected':''}" data-theme-choice="fantasy" type="button"><span class="theme-swatch swatch-fantasy"><span></span><span></span></span><strong>Средневековое / фэнтези</strong><small>Пергамент, тёмное дерево и золото</small></button></div><label class="avatar-setting" for="avatars-enabled"><span><strong>Аватары</strong><small>Показывать изображение рядом с редактором записи</small></span><input id="avatars-enabled" type="checkbox" role="switch" ${S.settings.avatars_enabled?'checked':''}></label>`;

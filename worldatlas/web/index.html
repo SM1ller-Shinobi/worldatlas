@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/fantasy.css">
   <link rel="stylesheet" href="/avatars.css">
   <link rel="stylesheet" href="/editor-controls.css">
+  <link rel="stylesheet" href="/lightbox.css">
   <script src="/app.js" defer></script>
 </head>
 <body data-theme="__THEME__">
@@ -37,6 +38,7 @@
   <div id="welcome" class="welcome"><div class="welcome-card"><div class="welcome-top"><span class="welcome-logo">✦</span><span class="eyebrow">ВАША ВСЕЛЕННАЯ В ПОРЯДКЕ</span></div><h1>Мир, который легко<br><em>развивать.</em></h1><p class="welcome-lead">Сюжет, персонажи, места и детали мира в одном месте. Всё хранится в папке проекта как обычные файлы.</p><div class="folder-form"><label for="folder-path">Папка проекта</label><div class="path-row"><input id="folder-path" type="text" placeholder="C:\Мои миры\Новый мир" spellcheck="false"><button id="browse-button" class="secondary-button">Выбрать папку</button></div><div id="folder-hint" class="folder-hint">Выберите существующий проект или пустую папку для нового.</div><button id="open-button" class="primary-button wide">Открыть проект</button></div><div id="recents-wrap" class="recents hidden"><div class="eyebrow">НЕДАВНИЕ МИРЫ</div><div id="recents"></div></div></div><div class="welcome-art"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="planet"></div><span class="star star-a">✦</span><span class="star star-b">✧</span><span class="star star-c">✦</span><div class="art-caption">Каждая деталь<br>становится частью истории.</div></div></div>
 
   <div id="modal" class="modal-backdrop hidden"><div class="modal-card"><div class="modal-head"><h2 id="modal-title">О проекте</h2><button id="modal-close" class="icon-button">×</button></div><div id="modal-body"></div><div id="modal-actions" class="modal-actions"></div></div></div>
+  <div id="image-lightbox" class="image-lightbox hidden" role="dialog" aria-modal="true" aria-label="Просмотр изображения"><button id="lightbox-close" class="lightbox-close" type="button" aria-label="Закрыть просмотр">×</button><div class="lightbox-frame"><img id="lightbox-image" alt=""></div></div>
   <div id="toast" class="toast hidden"></div>
 </body>
 </html>

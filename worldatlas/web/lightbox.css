@@ -1,0 +1,49 @@
+.image-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 58px 24px 24px;
+  background: #05090de8;
+  backdrop-filter: blur(8px);
+}
+.lightbox-frame {
+  display: grid;
+  place-items: center;
+  max-width: min(1200px, 94vw);
+  max-height: calc(100vh - 90px);
+  padding: 12px;
+  border: 1px solid var(--line2);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.lightbox-frame img {
+  display: block;
+  max-width: min(1174px, calc(94vw - 26px));
+  max-height: calc(100vh - 116px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+.lightbox-close {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line2);
+  border-radius: 50%;
+  background: var(--panel2);
+  color: var(--text);
+  font-size: 26px;
+  line-height: 1;
+}
+.lightbox-close:hover,
+.lightbox-close:focus-visible { border-color: var(--accent); color: var(--accent2); }
+body[data-theme="fantasy"] .image-lightbox { background: #0f0907ec; }
+body[data-theme="fantasy"] .lightbox-frame { border: 2px solid #b68a4a; border-radius: 4px; background: #302218; box-shadow: inset 0 0 0 5px #d5ad6722, var(--shadow); }
+body[data-theme="fantasy"] .lightbox-close { border-color: #b68a4a; border-radius: 4px; background: #4a321e; }

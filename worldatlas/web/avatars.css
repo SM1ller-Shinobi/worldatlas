@@ -79,7 +79,11 @@
   border-radius: 9px;
   background: radial-gradient(circle at 48% 28%, #273a4b, #101722 78%);
   box-shadow: inset 0 0 0 5px #0d121b55;
+  padding: 0;
+  cursor: zoom-in;
 }
+.avatar-frame:hover,
+.avatar-frame:focus-visible { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 2px; }
 .avatar-frame img { display: block; width: 100%; height: 100%; object-fit: contain; }
 
 body[data-theme="fantasy"] .avatar-panel {
